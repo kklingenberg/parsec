@@ -27,6 +27,7 @@ class Variable(Symbol): pass
 class Operation(Symbol): pass
 
 
+@errormessage("input is not a valid number")
 @pmap(sequence(manyone(digit), try_(sequence(literal('.'), manyone(digit)))))
 def number(value):
     """All numbers are considered real numbers and stored as
@@ -38,6 +39,7 @@ def number(value):
     return float("".join(intdigits + [dot] + decimaldigits))
 
 
+@errormessage("input is not a valid variable name")
 @pmap(sequence(letter, many(or_(letter, digit, literal('_')))))
 def variable(value):
     """A variable starts with a letter and is followed by numbers,

@@ -103,6 +103,27 @@ def try_(p):
     return parser
 
 
+def dropvalue(p):
+    """Returns a parser that acts like *p* but that returns ``None``
+    if it succeeds."""
+    return pmap(p)(lambda _: None)
+
+
+def errormessage(msg):
+    """Returns a parser that acts like it's argument but that fails
+    with the error message *msg*, including also the first few
+    characters in the input."""
+    def wrapper(p):
+        @functools.wraps(p)
+        def parser(string):
+            try:
+                return p(string)
+            except ParseError:
+                raise ParseError(msg + u" -- at '{0}...'".format(string[:5]))
+        return parser
+    return wrapper
+
+
 def digit(string):
     if not string:
         raise ParseError("empty string")
@@ -138,3 +159,19 @@ def end(string):
     if string:
         raise ParseError("not the end of input")
     return (None, "")
+
+
+def runparser(p, string, ignore_remainder=False):
+    """Executes the parser *p* with *string* as input.
+
+    This returns the parser's return value, discarding the remainder
+    of input if *ignore_remainder* is ``True``. If it's ``False`` (the
+    default), the parsing will fail if some input remains after the
+    parsing."""
+    value, remainder = p(string)
+    if ignore_remainder:
+        return value
+    if remainder:
+        raise ParseError(u"<{0}> parser didn't consume all input; "\
+                             u"remainding '{1}'".format(p.__name__, remainder))
+    return value
