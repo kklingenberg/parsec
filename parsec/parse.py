@@ -80,13 +80,15 @@ def or_(*ps):
     returns the result of the first one that doesn't fail. If all
     fail, then the parser fails."""
     def parser(string):
+        message = ""
         for p in ps:
             try:
                 val, remainder = p(string)
                 return (val, remainder)
-            except ParseError:
-                pass
-        raise ParseError("none of the given parsers apply")
+            except ParseError as e:
+                if e.args and e.args[0] is not None:
+                    message += e.args[0] + "\n"
+        raise ParseError(message[:-1])
     return parser
 
 
@@ -143,6 +145,16 @@ def letter(string):
     raise ParseError("not a letter")
 
 
+def space(string):
+    """Whitespace, tab, or new line."""
+    if not string:
+        raise ParseError("empty string")
+    c = string[0]
+    if c == " " or c == "\t" or c == "\n":
+        return (c, string[1:])
+    raise ParseError("not whitespace, tab or new line character")
+
+
 def literal(lit):
     """Matches a literal substring."""
     if not lit:
@@ -173,5 +185,5 @@ def runparser(p, string, ignore_remainder=False):
         return value
     if remainder:
         raise ParseError(u"<{0}> parser didn't consume all input; "\
-                             u"remainding '{1}'".format(p.__name__, remainder))
+                             u"remaining '{1}'".format(p.__name__, remainder))
     return value
