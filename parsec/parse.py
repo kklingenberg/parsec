@@ -173,6 +173,22 @@ def end(string):
     return (None, "")
 
 
+def except_(*letters):
+    """Matches any character except those in *letters*."""
+    def parser(string):
+        if not string:
+            raise ParseError("empty string")
+        c = string[0]
+        if c in letters:
+            raise ParseError("input matches one of {0}".format(letters))
+        return (c, string[1:])
+    return parser
+
+
+#: Any one character.
+anything = except_()
+
+
 def runparser(p, string, ignore_remainder=False):
     """Executes the parser *p* with *string* as input.
 

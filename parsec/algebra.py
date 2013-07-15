@@ -54,17 +54,16 @@ def variable(value):
     return Variable("".join([first] + rest))
 
 
-atom = errormessage("input is neither a valid number "\
-                        "nor a valid variable name")(or_(number, variable))
-
-
-#: (literal, precedence) 0 is maximum precedence
+#: (literal, precedence)
 infix_operations = dict([
-    ('+', 3),
+    ('+', 1),
     ('*', 2),
-    ('-', 3),
+    ('-', 1),
     ('/', 2),
-    ('^', 1)])
+    ('^', 3)])
+
+def minprecedence():
+    return min(infix_operations.itervalues())
 
 prefix_operations = [
     pmap(literal('-'))(lambda _: Operation("negate")),
@@ -75,35 +74,60 @@ prefix_operations = [
 spaces = many(space)
 
 
-def expression(string):
-    value, remainder = sequence(
-        spaces,
-        or_(prefix_expression, wrapped_expression, atom),
-        spaces,
-        try_(infix_expression),
-        spaces)(string)
-    _, exp, _, infix, _ = value
-    if infix is None:
+def expression(current_precedence):
+    def parser(string):
+        value, remainder = sequence(
+            spaces,
+            or_(number, prefix_expression, wrapped_expression, variable),
+            spaces,
+            try_(infix_expression(current_precedence)),
+            spaces)(string)
+        _, exp, _, infix, _ = value
+        if infix is not None:
+            # operation, left-hand side, right-hand side
+            exp = [infix[0], exp, infix[1]]
         return (exp, remainder)
-    return ([infix[0],  # the operation
-             exp,       # the left-side argument
-             infix[1]], # the right-side argument
-            remainder)
+    return parser
 
 
-@pmap(sequence(literal('('), expression, literal(')')))
+def full_expression(string):
+    """A complete algebraic expression, including precedence
+    consideration."""
+    parser = sequence(expression(minprecedence()),
+                      many(infix_expression(minprecedence())))
+    value, remainder = parser(string)
+    exp, infixes = value
+    for infix in infixes:
+        exp = [infix[0], exp, infix[1]]
+    return (exp, remainder)
+
+
+@pmap(sequence(literal('('), full_expression, literal(')')))
 def wrapped_expression(value):
     return value[1]
 
 
-@pmap(sequence(or_(*prefix_operations), spaces, or_(wrapped_expression, atom)))
-def prefix_expression(value):
-    return [value[0], value[2]]
+def prefix_expression(string):
+    parser = sequence(
+        or_(*prefix_operations),
+        spaces,
+        or_(wrapped_expression, number, prefix_expression, variable))
+    value, remainder = parser(string)
+    return ([value[0], value[2]], remainder)
 
 
-def infix_expression(string):
-    op, remainder = or_(*map(literal, infix_operations))(string)
-    precedence = infix_operations[op]
-    # TODO handle precedence
-    exp, remainder = expression(remainder)
-    return ([Operation(op), exp], remainder)
+def infix_expression(current_precedence):
+    """Starting with the infix operation. The left hand side argument
+    has already been parsed."""
+    def parser(string):
+        op, remainder = or_(*map(literal, infix_operations))(string)
+        precedence = infix_operations[op]
+        if precedence < current_precedence:
+            raise ParseError("")
+        exp, remainder = expression(precedence)(remainder)
+        return ([Operation(op), exp], remainder)
+    return parser
+
+
+def parse_expression(input_):
+    return runparser(full_expression, input_)
