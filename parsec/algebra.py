@@ -80,10 +80,10 @@ def expression(current_precedence):
             spaces,
             or_(number, prefix_expression, wrapped_expression, variable),
             spaces,
-            try_(infix_expression(current_precedence)),
+            many(infix_expression(current_precedence)),
             spaces)(string)
-        _, exp, _, infix, _ = value
-        if infix is not None:
+        _, exp, _, infixes, _ = value
+        for infix in infixes:
             # operation, left-hand side, right-hand side
             exp = [infix[0], exp, infix[1]]
         return (exp, remainder)
@@ -93,13 +93,8 @@ def expression(current_precedence):
 def full_expression(string):
     """A complete algebraic expression, including precedence
     consideration."""
-    parser = sequence(expression(minprecedence()),
-                      many(infix_expression(minprecedence())))
-    value, remainder = parser(string)
-    exp, infixes = value
-    for infix in infixes:
-        exp = [infix[0], exp, infix[1]]
-    return (exp, remainder)
+    parser = expression(minprecedence())
+    return parser(string)
 
 
 @pmap(sequence(literal('('), full_expression, literal(')')))
