@@ -75,6 +75,13 @@ def pmap(p):
     return wrapper
 
 
+def return_(value):
+    """A parser that returns *value* but consumes no input."""
+    def parser(string):
+        return (value, string)
+    return parser
+
+
 def or_(*ps):
     """Returns a parser that attempts the given parsers in order, and
     returns the result of the first one that doesn't fail. If all
@@ -120,8 +127,9 @@ def errormessage(msg):
         def parser(string):
             try:
                 return p(string)
-            except ParseError:
-                raise ParseError(msg + u" -- at '{0}...'".format(string[:5]))
+            except ParseError as e:
+                message = (e.args[0] + "\n" + msg) if e.args else msg
+                raise ParseError(message + u" -- at '{0}...'".format(string[:5]))
         return parser
     return wrapper
 
